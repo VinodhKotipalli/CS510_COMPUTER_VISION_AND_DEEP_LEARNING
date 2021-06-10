@@ -111,7 +111,7 @@ if __name__ == '__main__':
     padding_value_xy = 0.0
     padding_value_wh = 0.0
     
-    epochs = 2
+    epochs = 10
     validation_split = 0.2
     steps_per_execution = 1
     num_hidden_0 = 256
@@ -169,7 +169,7 @@ if __name__ == '__main__':
     print(df_train.shape)
     print(df_train.columns)
 
-    #history = model.fit(generator_train, epochs=epochs,validation_data=generator_val,callbacks=[es, rlr, ckp],verbose=1)
+    history = model.fit(generator_train, epochs=epochs,validation_data=generator_val,callbacks=[es, rlr, ckp],verbose=1)
     predictions = model.predict(generator_val)
     print(predictions.shape)
     print(predictions[:4,:5])

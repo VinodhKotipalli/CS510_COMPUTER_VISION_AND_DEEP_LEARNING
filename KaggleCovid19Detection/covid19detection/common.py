@@ -20,6 +20,51 @@ projdir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 inputdir = projdir.replace('\\', '/') + '/data/csv'
 imagedir = projdir.replace('\\', '/') + '/data/images'
 
+# Helper Function to shuffle the np rows independently. 
+def shuffle_rows_independently(data_np):
+    rows = data_np.shape[0]
+    for i in range(rows):
+        np.random.shuffle(data_np[i])
+    return data_np
+
+# Function to shuffle the opacity values to avoid overfitting during training
+def shuffle_opacity_locations(df):
+    max_boxes = int(df['ImageBoxCount'].max())
+    drop_columns = list()
+    for i in range(max_boxes):
+        df['X_old'+str(i+1)] = df['X'+str(i+1)]
+        df['Y_old'+str(i+1)] = df['Y'+str(i+1)]
+        df['W_old'+str(i+1)] = df['W'+str(i+1)]
+        df['H_old'+str(i+1)] = df['H'+str(i+1)]
+        df['I'+str(i+1)] = i+1
+
+        drop_columns.append('X_old'+str(i+1))
+        drop_columns.append('Y_old'+str(i+1))
+        drop_columns.append('W_old'+str(i+1))
+        drop_columns.append('H_old'+str(i+1))
+        drop_columns.append('I'+str(i+1))
+
+    for i in range(max_boxes):
+        rows = df[df['ImageBoxCount'] == i+1].shape[0]
+        cols = i+1
+        shuffle_np = np.zeros(shape=(rows,cols),dtype=int)
+        shuffle_cols = list()
+        for j in range(i+1):
+            shuffle_cols.append('I'+str(j+1))
+        shuffle_np = np.tile(np.arange(1,i+2),(rows,1))
+        shuffle_np = shuffle_rows_independently(shuffle_np)
+        #print("roots = %d, columns = %s shape = %s, \nshuffle_np = \n%s" %(i+1,shuffle_cols,shuffle_np.shape,shuffle_np))
+        for j in range(i+1):
+            df.loc[df['ImageBoxCount'] == i+1,'I'+str(j+1)] = shuffle_np[:,j]
+    for i in range(max_boxes):
+        for j in range(max_boxes):
+            df.loc[df['I'+str(j+1)] == i+1,'X'+str(i+1)] = df.loc[df['I'+str(j+1)] == i+1,'X_old'+str(j+1)]
+            df.loc[df['I'+str(j+1)] == i+1,'Y'+str(i+1)] = df.loc[df['I'+str(j+1)] == i+1,'Y_old'+str(j+1)]
+            df.loc[df['I'+str(j+1)] == i+1,'W'+str(i+1)] = df.loc[df['I'+str(j+1)] == i+1,'W_old'+str(j+1)]
+            df.loc[df['I'+str(j+1)] == i+1,'H'+str(i+1)] = df.loc[df['I'+str(j+1)] == i+1,'H_old'+str(j+1)]
+
+    return df.drop(columns=drop_columns)
+
 # Function to read Image and Study level CSV files, merge and preprocessing them in desired format
 def read_dataset_csv(study_csv_path,image_csv_path,size_csv_path,study_columns=None,padding_value_xy=0.0,padding_value_wh=0.0,image_format='jpg'):
     df_image = pd.read_csv(image_csv_path)
@@ -178,3 +223,30 @@ if __name__ == '__main__':
     actual = np.array(generator_val.labels)
     print(y_col)
     print(len(actual[:,1]))
+
+    n = 2
+    roots = np.zeros((9*n,8*4 + 1),dtype=int)
+
+    for k in range(n):   
+        for i in range(9):
+            roots[(k*9 + i),0] = i
+            #print("k=%d,i=%d,idx=%d" %(k,i,k*9+i))
+            for j in range(i):
+                roots[(k*9 + i),4*j+1] = j+1
+                roots[(k*9 + i),4*j+2] = j+1
+                roots[(k*9 + i),4*j+3] = j+1
+                roots[(k*9 + i),4*j+4] = j+1
+
+
+
+    roots_columns = ['ImageBoxCount']
+    for i in range(1,9):
+        roots_columns.append('X'+str(i))
+        roots_columns.append('Y'+str(i))
+        roots_columns.append('W'+str(i))
+        roots_columns.append('H'+str(i))
+    #print(roots)
+    #print(roots_columns)
+    roots_df = shuffle_opacity_locations(pd.DataFrame(roots,columns=roots_columns))
+    print(roots_df)
+    #print(roots_df.columns)
