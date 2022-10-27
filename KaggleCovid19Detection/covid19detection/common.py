@@ -154,6 +154,8 @@ def get_image_generator(inputdf,dirpath,x_col,y_col,img_x,img_y,batch_size,valid
         class_mode='categorical'
     else:
         class_mode = 'multi_output'
+    if type(y_col) is list and len(y_col) == 1:
+        y_col = y_col[0]
 
     if subset != 'validation':
         image_generator = ImageDataGenerator(
@@ -185,8 +187,27 @@ def get_image_generator(inputdf,dirpath,x_col,y_col,img_x,img_y,batch_size,valid
     
     return dataset
 
+def iterator_to_numpy(inputdf,dirpath,x_col,y_col,img_x,img_y,batch_size,validation_split,subset,datagen=None):
+    if datagen is None:
+        datagen = get_image_generator(inputdf,dirpath,x_col,y_col,img_x,img_y,batch_size,validation_split,subset)
+    samples = len(datagen.filenames)
+    dataX = None
+    dataY = None
 
-
+    i = 0
+    while i < samples:
+        batchX,batchY = datagen.next()
+        if datagen.class_mode != 'categorical':
+            batchY = np.transpose(np.array(batchY))
+        if dataX is None:
+            dataX = batchX
+            dataY = batchY
+        else: 
+            dataX = np.concatenate((dataX,batchX),axis=0)
+            dataY = np.concatenate((dataY,batchY),axis=0)
+        i += batchX.shape[0]
+    return (dataX,dataY)
+        
 if __name__ == '__main__':
     study_csv_path_training = inputdir+'/train_study_level.csv'
     image_csv_path_training = inputdir+'/train_image_level.csv'
@@ -220,9 +241,26 @@ if __name__ == '__main__':
     generator_train = get_image_generator(df_train,imagedir + '/train','fname',y_col,img_x,img_y,batch_size,validation_split,'training')
     generator_val = get_image_generator(df_train,imagedir + '/train','fname',y_col,img_x,img_y,batch_size,validation_split,'validation')
 
+    trainX,trainY = iterator_to_numpy(df_train,imagedir + '/train','fname',y_col,img_x,img_y,batch_size,validation_split,'training')
+    testX,testY = iterator_to_numpy(df_train,imagedir + '/train','fname',y_col,img_x,img_y,batch_size,validation_split,'validation')
+
+    print(trainX.shape)
+    print(trainY.shape)
+    print(testX.shape)
+    print(testY.shape)
+
+    print(np.max(trainX))
+    print(np.max(trainY,axis=0))
+    print(np.max(testX))
+    print(np.max(testY,axis=0))
+
+    print(np.min(trainX))
+    print(np.min(trainY,axis=0))
+    print(np.min(testX))
+    print(np.min(testY,axis=0))
     actual = np.array(generator_val.labels)
-    print(y_col)
-    print(len(actual[:,1]))
+    #print(y_col)
+    #print(len(actual[:,1]))
 
     n = 2
     roots = np.zeros((9*n,8*4 + 1),dtype=int)
@@ -248,5 +286,5 @@ if __name__ == '__main__':
     #print(roots)
     #print(roots_columns)
     roots_df = shuffle_opacity_locations(pd.DataFrame(roots,columns=roots_columns))
-    print(roots_df)
+    #print(roots_df)
     #print(roots_df.columns)
